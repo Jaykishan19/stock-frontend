@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h2>📈 Companies</h2>
+    <ul class="company-list" id="companyList"></ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <header class="header">
+      <h1 id="companyTitle">Select a Company</h1>
+    </header>
+
+    <section class="chart-container">
+      <canvas id="stockChart"></canvas>
+    </section>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    let chart;
+
+    // ✅ Load company list dynamically
+    async function loadCompanies() {
+      try {
+        const res = await fetch("http://localhost:5000/api/companies");
+        const companies = await res.json();
+
+        const list = document.getElementById("companyList");
+        list.innerHTML = "";
+
+        companies.forEach(c => {
+          const li = document.createElement("li");
+          li.innerText = `${c.name} (${c.symbol})`;
+          li.onclick = () => loadStock(c.symbol);
+          list.appendChild(li);
+        });
+      } catch (err) {
+        console.error("Error loading companies:", err);
+        alert("Could not load company list.");
+      }
+    }
+
+    // ✅ Load last 30 days of stock data
+    async function loadStock(symbol) {
+      document.getElementById("companyTitle").innerText = symbol + " - Last 30 Days";
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/stocks/${symbol}`);
+        const json = await res.json();
+
+        let labels = json.dates;
+        let data = json.prices;
+
+        // 🔥 Keep only last 30 days
+        if (labels.length > 30) {
+          labels = labels.slice(-30);
+          data = data.slice(-30);
+        }
+
+        if (chart) chart.destroy();
+        const ctx = document.getElementById("stockChart").getContext("2d");
+
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [{
+              label: symbol + " Price",
+              data,
+              borderColor: "#4a90e2",
+              backgroundColor: "rgba(74,144,226,0.2)",
+              tension: 0.4,
+              fill: true,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: "#333", font: { size: 14 } }
+              },
+              tooltip: {
+                backgroundColor: "#222",
+                titleColor: "#fff",
+                bodyColor: "#fff",
+                padding: 10,
+                borderWidth: 1,
+                borderColor: "#4a90e2"
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: "#555", font: { size: 12 } },
+                grid: { color: "rgba(200,200,200,0.2)" }
+              },
+              y: {
+                ticks: { color: "#555", font: { size: 12 } },
+                grid: { color: "rgba(200,200,200,0.2)" }
+              }
+            }
+          }
+        });
+
+      } catch (err) {
+        console.error("Error fetching stock:", err);
+        alert("Failed to load stock data. Is backend running?");
+      }
+    }
+
+    // ✅ Load companies on startup
+    loadCompanies();
+  </script>
+</body>
+</html>
